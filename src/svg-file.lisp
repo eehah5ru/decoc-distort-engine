@@ -7,6 +7,11 @@
         :parse-number)
   (:export
    mk-svg-file
+   svg-file-scale
+   svg-file-height
+   svg-file-width
+   svg-file-translate-x
+   svg-file-translate-y
    ;; select-text-nearby-f
    xml-doc
    el-nearby-p*
@@ -15,6 +20,14 @@
   )
 
 (in-package :map-distort-engine.svg-file)
+
+;;;
+;;;
+;;; CONDITIONS
+;;;
+;;;
+(define-condition svg-file-does-not-exist (file-error)
+  ())
 
 ;;;
 ;;; SVG FILE CLASS
@@ -58,7 +71,7 @@
 (defun mk-svg-file (path)
   (when (not (uiop:file-exists-p path))
     (log:error "file does not exist: ~a" path)
-    (error 'file-does-not-exist))
+    (error 'svg-file-does-not-exist))
 
   (let* ((abs-path (truename path))
          (d (lquery:$ (initialize abs-path)))
@@ -74,67 +87,8 @@
                            :scale 1
                            :translate-x 0
                            :translate-y 0)))
-    (fix-svg f)
+    ;; (fix-svg f)
     f))
-
-;;;
-;;;
-;;; COORDINATES CONVERSION
-;;;
-;;;
-(defun view->diagram (sf point)
-  (check-type point cons)
-
-  (let* ((v-x (car point))
-         (v-y (cdr point))
-         (x v-x)
-         (y v-y)
-         (x (/ v-x (svg-file-scale sf)))
-         (y (/ v-y (svg-file-scale sf)))
-         (x (- x (svg-file-translate-x sf)))
-         (y (- y (svg-file-translate-y sf)))
-
-         )
-    (cons x y)))
-
-
-;;;
-;;;
-;;; NEARBY PREDICATES
-;;;
-;;;
-
-;;;
-;;; in doc coordinates
-;;;
-(defun el-nearby-p (sf el x y)
-  (let* ((el-x (or (plump:attribute el "x")
-                   (error 'svg-attr-not-found "x")))
-         (el-y (or (plump:attribute el "y")
-                   (error 'svg-attr-not-found "y")))
-         (el-x (parse-number el-x))
-         (el-y (parse-number el-y))
-         ;; point in diagam coords
-         (d-point (view->diagram sf (cons x y)))
-         (dist (sqrt (+ (expt (- el-x (car d-point)) 2)
-                        (expt (- el-y (cdr d-point)) 2)))))
-    ;; check if inside of given circle
-    ;; TODO: move to parameter
-    (< dist 100)))
-
-;;;
-;;; in float 0..1
-;;;
-;;; float args 0..1
-;;; then converted to vide width & height of diagram
-(defun el-nearby-p* (sf el x y)
-  (check-type x float)
-  (check-type y float)
-  (el-nearby-p sf
-               el
-               (* (svg-file-width sf) x)
-               (* (svg-file-height sf) y)))
-
 
 
 ;;;
@@ -196,9 +150,10 @@
 ;;;
 ;;;
 
+
 (defun test-svg-file ()
-  (let* ((sf (mk-svg-file "data/generated.svg")))
+  (let* ((sf (mk-svg-file "data/test_map.svg")))
     (format t "~a" (get-svg-dims (xml-doc sf)))
-    (save-svg-to-file sf "data/patched.svg")
+    (save-svg-to-file sf "data/test_map_out.svg")
     ;; (xml-doc sf)
     ))

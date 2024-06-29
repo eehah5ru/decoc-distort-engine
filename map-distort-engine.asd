@@ -19,6 +19,7 @@
                "lquery"
                ;; pathname utils
                "cl-fad"
+               "str"
                "plump"
                "cl-ppcre"
                "parse-number"
@@ -27,7 +28,13 @@
                "3d-math")  
   :components ((:module "src"
                 :components
-                ((:file "main"))))
+                ((:file "main")
+                 (:file "ofx")
+                 (:file "svg-file")
+                 (:file "svg-map")
+                 (:file "shake"
+                  :depends-on ("svg-file"
+                               "svg-map")))))
   :description ""
   :long-description "")
 
