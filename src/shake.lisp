@@ -22,7 +22,7 @@
 ;;;
 ;;;
 
-(defparameter *delta-position* 200)
+(defparameter *delta-position* 1000)
 
 ;;;
 ;;;
@@ -33,7 +33,6 @@
 ;;;
 ;;; LQUERY / RANDOMIZE / TEXT POSITION
 ;;;
-;;; TODO GENERALIZE for non-text els
 (define-lquery-function randomise-text-position (n &rest args)
   ;; (log:info "randomising / text")
 
@@ -63,13 +62,18 @@
     ;; (log:info "randomising / polyline")
 
   (let* ((pline (svg->polyline n))
-         (dx (- (random *delta-position*)
-                (/ *delta-position* 2)))
-         (dy (- (random *delta-position*)
-                (/ *delta-position* 2)))
-)
-    (translate pline (cons dx dy))
+         (translate-vec (mk-rand-position-vector)))
+    (translate pline translate-vec)
     (polyline->svg pline n)))
+
+;;;
+;;; LQUERY / RANDOMIZE / PATH POSITION
+;;;
+(define-lquery-function randomise-path-position (n &rest args)
+  (let* ((p (svg->path n))
+         (translate-vec (mk-rand-position-vector)))
+    (translate p translate-vec)
+    (path->svg p n)))
 
 ;;;
 ;;;
@@ -101,8 +105,30 @@
       (randomise-polyline-position)
       (root)
       ;; pathes
-      ;; TODO: add pathes randomisation
+      "path"
+      (filter #'(lambda (el)
+                  (path-nearby-p* sf el x y)))
+      (randomise-path-position)
+      (root)
+
       )))
+
+;;;
+;;;
+;;; GEOMETRY UTILS
+;;;
+;;;
+
+;;;
+;;; MAKE RANDOMIZING VECTOR
+;;; -> cons x y
+;;;
+(defun mk-rand-position-vector ()
+  (cons (- (random *delta-position*)
+           (/ *delta-position* 2))
+        (- (random *delta-position*)
+           (/ *delta-position* 2))))
+
 
 ;;;
 ;;;
@@ -111,5 +137,7 @@
 ;;;
 (defun test-shake-position-nearby ()
   (let* ((sf (mk-svg-file "data/test_map.svg")))
-    (shake-position-nearby-f sf 0.5 0.5)
+    (shake-position-nearby-f sf
+                             (random 1.0)
+                             (random 1.0))
     (save-svg-to-file sf "data/test_map_out.svg")))

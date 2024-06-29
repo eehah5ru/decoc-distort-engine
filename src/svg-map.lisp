@@ -11,6 +11,7 @@
   (:export
    text-nearby-p*
    polyline-nearby-p*
+   path-nearby-p*
 
    ;; polyline
    polyline
@@ -18,6 +19,12 @@
    polyline-svg
    svg->polyline
    polyline->svg
+
+   ;; path
+   path
+   path-d
+   svg->path
+   path->svg
 
    ;; geometry functions
    translate
@@ -44,6 +51,11 @@
 ;;;
 (defparameter *max-nearby-distance* 500)
 
+
+(define-condition svg-malformed-attr (error)
+  ((attr-name
+    :initarg :attr-name)))
+
 ;;;
 ;;;
 ;;; POLYLINE WRAPPER
@@ -59,7 +71,6 @@
     :initarg :points
     :initform nil
     :accessor polyline-points)))
-
 
 ;;;
 ;;; factory method from SVG
@@ -102,6 +113,95 @@
           points)
     svg))
 
+;;;
+;;;
+;;; PATH WRAPPER
+;;;
+;;;
+(defclass path ()
+  (
+   ;; d svg element
+   (d :initarg :d
+      :initform nil
+      :accessor path-d)
+   ))
+
+;;;
+;;; SVG -> PATH
+;;;
+(defun svg->path (svg)
+  (let* ((d (or (plump:attribute svg "d")
+                (error 'svg-attr-not-found "d")))
+         (d (parse-raw-d d)))
+    (make-instance 'path
+                   :d d)))
+
+;;;
+;;; PATH -> SVG
+;;;
+(defun path->svg (p svg)
+  (let* ((d (path-d p))
+         (d (mapcar
+             (lambda (d-el)
+               (cond
+                 ;; cmds -> just return
+                 ((stringp d-el)
+                  d-el)
+                 ;; coord pair -> to string
+                 ((consp d-el)
+                  (format nil "~a ~a" (car d-el) (cdr d-el)))
+
+                 (t
+                  (error "malformed path d"))
+                 ))
+             d))
+         (d (str:unwords d)))
+    (setf (plump:attribute svg "d")
+          d)
+    svg))
+
+;;;
+;;; parse raw path's d attr
+;;; return list of Ms Ls (cons x y) Z
+;;;
+(defun parse-raw-d (raw-d)
+  (let* ((d (str:words raw-d)))
+    (reverse (reduce
+              (lambda (r x)
+                (cond
+                  ;; move
+                  ((string= "M" x)
+                   (cons x r))
+                  ;; line
+                  ((string= "L" x)
+                   (cons x r))
+                  ;; end
+                  ((string= "Z" x)
+                   (cons x r))
+                  ;; end and move
+                  ((string= "ZM" x)
+                   (cons x r))
+                  ;; we have number
+                  (t
+                   (cond
+                     ;; storing x in r
+                     ((stringp (car r))
+                      (let* ((x (parse-number x)))
+                        (cons x r)))
+                     ;; x is already in r
+                     ;; making coord pair
+                     ((numberp (car r))
+                      (let* ((y (parse-number x))
+                             (x (car r))
+                             (r (cdr r))
+                             (coords (cons x y)))
+                        (cons coords r)))
+                     ;; error
+                     (t
+                      (error 'svg-malformed-attr
+                             :attr-name "path-d"))))))
+              d
+              :initial-value '()))))
 
 ;;;
 ;;;
@@ -113,20 +213,46 @@
    "translate object accordign to vector")
 
   ;;
+  ;; translate single point
+  ;;
+  (:method ((o cons) (vec cons))
+    (cons (+ (car o) (car vec))
+          (+ (cdr o) (cdr vec))))
+  ;;
   ;; translate polyline
   ;;
   (:method ((o polyline) (vec cons))
     (let* ((points (polyline-points o))
            (points (mapcar
                     (lambda (point)
-                      (cons (+ (car point) (car vec))
-                            (+ (cdr point) (cdr vec))))
+                      (translate point vec))
                     points)))
       ;; modifying source object!
       (setf (access o 'points)
             points)
       ;; return object
-      o)))
+      o))
+
+  ;;
+  ;; translate path
+  ;;
+  (:method ((o path) (vec cons))
+    (let* ((d (path-d o))
+           (d (mapcar
+               (lambda (d-el)
+                 (cond
+                   ;; cmd -> do nothing
+                   ((stringp d-el)
+                    d-el)
+                   ;; coords -> translate
+                   ((consp d-el)
+                    (translate d-el vec))))
+               d)))
+      (setf (access o 'd)
+            d)
+      ;; return object
+      o))
+  )
 
 
 ;;;
@@ -211,7 +337,28 @@
             (points-nearby-p point pline-point))
           (polyline-points pline))))
 
+;;;
+;;; NEARBY / PATH / FLOAT COORDS
+;;; x y in range 0..1
+;;; points in 'd' attr
+;;;
+(defun path-nearby-p* (sf svg-path x y)
+  (check-type x float)
+  (check-type y float)
 
+  (let* ((x (* x (svg-file-width sf)))
+         (y (* y (svg-file-height sf)))
+         (point (cons x y))
+         (point (view->diagram sf point))
+         (p (svg->path svg-path)))
+    (some (lambda (path-d-el)
+            (cond
+              ((consp path-d-el)
+               (points-nearby-p point path-d-el))
+              ;; false for path cmds
+              (t
+               nil)))
+          (path-d p))))
 ;;;
 ;;; NEARBY / UTILS
 ;;;
@@ -221,3 +368,14 @@
   (let* ((dist (sqrt (+ (expt (- (car p2) (car p1)) 2)
                         (expt (- (cdr p2) (cdr p1)) 2)))))
     (< dist *max-nearby-distance*)))
+
+
+;;;
+;;;
+;;; TEST FUNCS
+;;;
+;;;
+(defun test-parse-raw-d ()
+  (let* ((raw-d "M 534.827 1062.08 L 534.827 1006.62 L 644.359 1006.62 L 644.359 1062.08 Z")
+         (d (parse-raw-d raw-d)))
+    (format t "~a~%~a" raw-d d)))
