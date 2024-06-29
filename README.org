@@ -1,0 +1,17 @@
+* Map-Distort-Engine  - 
+
+** Usage
+
+** Installation
+
+** Author
+
++ eehah5ru (eeefff.org@riseup.net)
+
+** Copyright
+
+Copyright (c) 2024 eehah5ru (eeefff.org@riseup.net)
+
+** License
+
+Licensed under the MIT License.
