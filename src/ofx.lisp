@@ -6,9 +6,27 @@
         :parse-number
         :osc
         :usocket
+
+        :map-distort-engine.shaker
+        :map-distort-engine.svg-file
         ))
 
 (in-package :map-distort-engine.ofx)
+
+
+;;;
+;;;
+;;; PARAMETERS
+;;;
+;;;
+(defparameter *in-file-path* "data/diagrams/map.svg")
+
+(defparameter *out-file-path* "data/diagrams/map_patched.svg")
+
+(defparameter *mouse-x* 0)
+
+(defparameter *mouse-y* 0)
+
 
 ;;;
 ;;;
@@ -51,6 +69,29 @@
     (log:info "contour points: ~a" raw-points)))
 
 ;;;
+;;; CMD / UPDATE MOUSE
+;;;
+(defun cmd-update-mouse (msg)
+  (log:info "updating mouse")
+  (let* ((point (osc:args msg))
+         (x (car point))
+         (y (cadr point)))
+    (update-mouse x y)))
+
+;;;
+;;; CMD / SHAKE POSITIONS
+;;;
+(defun cmd-shake-positions (msg)
+  (log:info "shaking positions around mouse point: ~d ~d"
+            *mouse-x*
+            *mouse-y*)
+
+  (patch-svg
+   (lambda (sf)
+     (shake-position-nearby-f sf *mouse-x* *mouse-y*))))
+
+
+;;;
 ;;;
 ;;; OSC ROUTER
 ;;;
@@ -68,6 +109,14 @@
       ;;
       ((string= "/contour" cmd)
        (cmd-contour msg))
+
+      ;; mouse
+      ((string= "/mouse/position" (osc:command msg))
+       (cmd-update-mouse msg))
+
+      ;; shake position around mouse
+      ((string= "/shake/positions" (osc:command msg))
+       (cmd-shake-positions msg))
 
       (t
        (log:error "unknown osc cmd: ~a" cmd)
@@ -103,3 +152,29 @@
                  ))
       (when s
         (socket-close s)))))
+
+
+;;;
+;;;
+;;; UTILS
+;;;
+;;;
+
+;;;
+;;; update mouse position
+;;;
+;;; mouse position is float in 0..1
+(defun update-mouse (x y)
+  (check-type x float)
+  (check-type y float)
+
+  (setf *mouse-x* x)
+  (setf *mouse-y* y))
+
+;;;
+;;; patch svg file with patcher-func
+;;;
+(defun patch-svg (patcher-func)
+  (let* ((sf (mk-svg-file *in-file-path*)))
+    (apply patcher-func (list sf))
+    (save-svg-to-file sf *out-file-path*)))

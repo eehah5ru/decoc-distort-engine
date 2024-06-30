@@ -11,7 +11,6 @@
    )
 
   (:export
-   shake-font-sizes-nearby-f
    shake-position-nearby-f))
 
 (in-package :map-distort-engine.shaker)
