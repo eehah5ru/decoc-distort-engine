@@ -7,6 +7,7 @@
         :parse-number)
   (:export
    mk-svg-file
+   svg-file
    svg-file-scale
    svg-file-height
    svg-file-width

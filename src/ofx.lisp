@@ -19,9 +19,15 @@
 ;;; PARAMETERS
 ;;;
 ;;;
-(defparameter *in-file-path* "data/diagrams/map.svg")
+(defparameter *in-file-path*
+  (asdf:system-relative-pathname
+   :map-distort-engine
+   "data/diagrams/map.svg"))
 
-(defparameter *out-file-path* "data/diagrams/map_patched.svg")
+(defparameter *out-file-path*
+  (asdf:system-relative-pathname
+   :map-distort-engine
+   "data/diagrams/map_patched.svg"))
 
 (defparameter *mouse-x* 0)
 
@@ -88,7 +94,12 @@
 
   (patch-svg
    (lambda (sf)
-     (shake-position-nearby-f sf *mouse-x* *mouse-y*))))
+     (shake-position-nearby-f sf *mouse-x* *mouse-y* 200.0)
+     (map-distort-engine.shifter::shift-positions-out-of-circle-f
+      sf
+      *mouse-x*
+      *mouse-y*
+      200.0))))
 
 
 ;;;

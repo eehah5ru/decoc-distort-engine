@@ -32,7 +32,7 @@
 ;;;
 ;;; LQUERY / RANDOMIZE / TEXT POSITION
 ;;;
-(define-lquery-function randomise-text-position (n &rest args)
+(define-lquery-function randomise-text-position (n radius)
   ;; (log:info "randomising / text")
 
   (let* ((x (or (plump:attribute n "x")
@@ -41,10 +41,10 @@
                 (error 'svg-attr-not-found)))
          (x (parse-number x))
          (y (parse-number y))
-         (dx (- (random *delta-position*)
-                (/ *delta-position* 2)))
-         (dy (- (random *delta-position*)
-                (/ *delta-position* 2)))
+         (dx (- (random radius)
+                (/ radius 2)))
+         (dy (- (random radius)
+                (/ radius 2)))
          (nx (+ x dx))
          (ny (+ y dy)))
     (setf (plump:attribute n "x")
@@ -57,20 +57,20 @@
 ;;;
 ;;; LQUERY / RANDOMIZE / POLYLINE POSITION
 ;;;
-(define-lquery-function randomise-polyline-position (n &rest args)
+(define-lquery-function randomise-polyline-position (n radius)
     ;; (log:info "randomising / polyline")
 
   (let* ((pline (svg->polyline n))
-         (translate-vec (mk-rand-position-vector)))
+         (translate-vec (mk-rand-position-vector radius)))
     (translate pline translate-vec)
     (polyline->svg pline n)))
 
 ;;;
 ;;; LQUERY / RANDOMIZE / PATH POSITION
 ;;;
-(define-lquery-function randomise-path-position (n &rest args)
+(define-lquery-function randomise-path-position (n radius)
   (let* ((p (svg->path n))
-         (translate-vec (mk-rand-position-vector)))
+         (translate-vec (mk-rand-position-vector radius)))
     (translate p translate-vec)
     (path->svg p n)))
 
@@ -84,7 +84,7 @@
 ;;; SHAKE POSITIONS NEAR POINT
 ;;; coords are in float 0..1
 ;;;
-(defun shake-position-nearby-f (sf x y)
+(defun shake-position-nearby-f (sf x y radius)
   (check-type x float)
   (check-type y float)
 
@@ -94,20 +94,20 @@
       ;; texts
       "text"
       (filter #'(lambda (el)
-                  (text-nearby-p* sf el x y)))
-      (randomise-text-position)
+                  (text-nearby-p* sf el x y radius)))
+      (randomise-text-position radius)
       (root)
       ;; polylines
       "polyline"
       (filter #'(lambda (el)
                   (polyline-nearby-p* sf el x y)))
-      (randomise-polyline-position)
+      (randomise-polyline-position radius )
       (root)
       ;; pathes
       "path"
       (filter #'(lambda (el)
-                  (path-nearby-p* sf el x y)))
-      (randomise-path-position)
+                  (path-nearby-p* sf el x y radius)))
+      (randomise-path-position radius)
       (root)
 
       )))
@@ -122,11 +122,11 @@
 ;;; MAKE RANDOMIZING VECTOR
 ;;; -> cons x y
 ;;;
-(defun mk-rand-position-vector ()
-  (cons (- (random *delta-position*)
-           (/ *delta-position* 2))
-        (- (random *delta-position*)
-           (/ *delta-position* 2))))
+(defun mk-rand-position-vector (radius)
+  (cons (- (random radius)
+           (/ radius 2))
+        (- (random radius)
+           (/ radius 2))))
 
 
 ;;;
@@ -138,5 +138,7 @@
   (let* ((sf (mk-svg-file "data/test_map.svg")))
     (shake-position-nearby-f sf
                              (random 1.0)
-                             (random 1.0))
+                             (random 1.0)
+                             (+ 100
+                                (random 1000.0)))
     (save-svg-to-file sf "data/test_map_out.svg")))

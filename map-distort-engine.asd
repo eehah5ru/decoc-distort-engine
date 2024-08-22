@@ -25,14 +25,20 @@
                "parse-number"
                "osc"
                "usocket"
-               "3d-math")  
+               "3d-math"
+               :cl-cgal)  
   :components ((:module "src"
                 :components
                 ((:file "main")
-                 (:file "ofx")
+                 (:file "ofx"
+                  :depends-on ("shake"
+                               "shift"))
                  (:file "svg-file")
                  (:file "svg-map")
                  (:file "shake"
+                  :depends-on ("svg-file"
+                               "svg-map"))
+                 (:file "shift"
                   :depends-on ("svg-file"
                                "svg-map")))))
   :description ""

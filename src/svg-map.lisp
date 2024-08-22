@@ -23,10 +23,13 @@
    ;; path
    path
    path-d
+   path-points
    svg->path
    path->svg
 
    ;; geometry functions
+   view->diagram
+   view->diagram*
    translate
    )
   )
@@ -49,7 +52,7 @@
 ;;;
 ;;; max distance for nearby points
 ;;;
-(defparameter *max-nearby-distance* 500)
+(defparameter *max-nearby-distance* 500.0)
 
 
 (define-condition svg-malformed-attr (error)
@@ -204,6 +207,24 @@
               :initial-value '()))))
 
 ;;;
+;;; return path points
+;;;
+(defun path-points (pth)
+  (check-type pth path)
+
+  (let* ((d (path-d pth))
+         (d (remove nil (mapcar
+                         (lambda (i)
+                           (cond
+                             ((stringp i)
+                              nil)
+                             ((consp i)
+                              i)))
+                         d))))
+    ;; return only points
+    d))
+
+;;;
 ;;;
 ;;; GEOMETRY FUNCS
 ;;;
@@ -261,21 +282,59 @@
 ;;;
 ;;; apply scale and transform
 ;;;
-(defun view->diagram (sf point)
-  (check-type point cons)
+(defgeneric view->diagram (sf
+                           o
+                           &key
+                           &allow-other-keys)
+  (:documentation "converts values from view coords to diagram ones")
 
-  (let* ((v-x (car point))
-         (v-y (cdr point))
-         ;; (x v-x)
-         ;; (y v-y)
-         (x (/ v-x (svg-file-scale sf)))
-         (y (/ v-y (svg-file-scale sf)))
-         (x (- x (svg-file-translate-x sf)))
-         (y (- y (svg-file-translate-y sf)))
+  ;; number
+  (:method ((sf svg-file)
+            (o number)
+            &key
+              ;; do not translate by default
+              (translate 0)
+            &allow-other-keys)
 
-         )
-    (cons x y)))
+    (let* ((r (/ o (svg-file-scale sf)))
+           (r (- r translate))
+           )
+      r))
 
+  ;; point
+  (:method ((sf svg-file)
+            (point cons)
+            &key
+            &allow-other-keys)
+
+    (check-type point cons)
+
+    (let* ((v-x (car point))
+           (v-y (cdr point))
+           (x (view->diagram
+               sf
+               v-x
+               :translate (svg-file-translate-x sf)))
+           (y (view->diagram
+               sf
+               v-y
+               :translate (svg-file-translate-y sf)))
+
+           ;; (x v-x)
+           ;; (y v-y)
+           )
+      (cons x y))))
+
+(defun view->diagram* (sf p)
+  (check-type sf svg-file)
+  (check-type p cl-cgal:point-like)
+
+  (view->diagram sf (cons
+                     (* (svg-file-width sf)
+                        (cl-cgal:x p))
+                     (* (svg-file-height sf)
+                        (cl-cgal:y p))))
+  )
 
 ;;;
 ;;;
@@ -288,7 +347,12 @@
 ;;; NEARBY / TEXT
 ;;; in doc coordinates
 ;;;
-(defun text-nearby-p (sf el x y)
+(defun text-nearby-p (sf
+                      el
+                      x
+                      y
+                      &optional
+                        (max-distance *max-nearby-distance*))
   (let* ((el-x (or (plump:attribute el "x")
                    (error 'svg-attr-not-found "x")))
          (el-y (or (plump:attribute el "y")
@@ -300,30 +364,42 @@
          (dist (sqrt (+ (expt (- el-x (car d-point)) 2)
                         (expt (- el-y (cdr d-point)) 2)))))
     ;; check if inside of given circle
-    (< dist *max-nearby-distance*)))
+    (< dist max-distance)))
 
 ;;;
 ;;; NEARBY / TEXT / FLOAT COORDS
 ;;; in float 0..1
 ;;;
 ;;; float args 0..1
-;;; then converted to vide width & height of diagram
-(defun text-nearby-p* (sf el x y)
+;;; then converted to view width & height of diagram
+(defun text-nearby-p* (sf
+                       el
+                       x
+                       y
+                       &optional
+                         (max-distance *max-nearby-distance*))
   (check-type x float)
   (check-type y float)
+  (check-type max-distance float)
   (text-nearby-p sf
-               el
-               (* (svg-file-width sf) x)
-               (* (svg-file-height sf) y)))
+                 el
+                 (* (svg-file-width sf) x)
+                 (* (svg-file-height sf) y)
+                 max-distance))
 
 
 
 ;;;
 ;;; NEARBY / POLYLINE / FLOAT COORDS
-;;; x y in float 0 .. 1
+;;; x y max-distance in float 0 .. 1
 ;;; points format
 ;;; points="778.884,106.071 776.574,108.987"
-(defun polyline-nearby-p* (sf svg-pline x y)
+(defun polyline-nearby-p* (sf
+                           svg-pline
+                           x
+                           y
+                           &optional
+                             (max-distance *max-nearby-distance*))
   (check-type x float)
   (check-type y float)
 
@@ -334,7 +410,9 @@
          (pline (svg->polyline svg-pline)))
     ;; true when at least one is nearby
     (some (lambda (pline-point)
-            (points-nearby-p point pline-point))
+            (points-nearby-p point
+                             pline-point
+                             max-distance))
           (polyline-points pline))))
 
 ;;;
@@ -342,7 +420,12 @@
 ;;; x y in range 0..1
 ;;; points in 'd' attr
 ;;;
-(defun path-nearby-p* (sf svg-path x y)
+(defun path-nearby-p* (sf
+                       svg-path
+                       x
+                       y
+                       &optional
+                         (max-distance *max-nearby-distance*))
   (check-type x float)
   (check-type y float)
 
@@ -354,7 +437,9 @@
     (some (lambda (path-d-el)
             (cond
               ((consp path-d-el)
-               (points-nearby-p point path-d-el))
+               (points-nearby-p point
+                                path-d-el
+                                max-distance))
               ;; false for path cmds
               (t
                nil)))
@@ -362,12 +447,15 @@
 ;;;
 ;;; NEARBY / UTILS
 ;;;
-(defun points-nearby-p (p1 p2)
+(defun points-nearby-p (p1
+                        p2
+                        &optional
+                         (max-distance *max-nearby-distance*))
   (check-type p1 cons)
   (check-type p2 cons)
   (let* ((dist (sqrt (+ (expt (- (car p2) (car p1)) 2)
                         (expt (- (cdr p2) (cdr p1)) 2)))))
-    (< dist *max-nearby-distance*)))
+    (< dist max-distance)))
 
 
 ;;;
