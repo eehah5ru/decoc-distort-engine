@@ -32,6 +32,8 @@
    :map-distort-engine
    "data/diagrams/map_patched.svg"))
 
+(defvar *svg-file* nil)
+
 (defparameter *mouse-x* 0)
 
 (defparameter *mouse-y* 0)
@@ -173,7 +175,8 @@
 ;;;
 (defun ofx-shaker ()
   (log:info "starting shaker")
-  (let* ((lparallel:*kernel* (lparallel:make-kernel 16))
+  (let* ((*svg-file* (mk-svg-file *in-file-path*))
+         (lparallel:*kernel* (lparallel:make-kernel 16))
          (port 12345)
          (send-port 12346)
          (s (socket-connect nil nil
@@ -226,10 +229,14 @@
   (setf *mouse-y* y))
 
 ;;;
+;;;
+;;;
+
+;;;
 ;;; patch svg file with patcher-func
 ;;;
 (defun patch-svg (patcher-func &key on-patched)
-  (let* ((sf (mk-svg-file *in-file-path*)))
+  (let* ((sf (clone-svg-file *svg-file*)))
     (apply patcher-func (list sf))
     (save-svg-to-file sf *out-file-path*)
     (apply on-patched ())))

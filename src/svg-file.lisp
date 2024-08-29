@@ -7,6 +7,7 @@
         :parse-number)
   (:export
    mk-svg-file
+   clone-svg-file
    svg-file
    svg-file-scale
    svg-file-height
@@ -90,6 +91,21 @@
                            :translate-y 0)))
     ;; (fix-svg f)
     f))
+
+;;;
+;;; factory / clone svg file
+;;; without rereading xml data from disk
+;;;
+(defun clone-svg-file (sf)
+  (let* ((d (plump:clone-node (xml-doc sf) t)))
+    (make-instance 'svg-file
+                   :path (access sf 'path)
+                   :xml-doc d
+                   :width (access sf 'width)
+                   :height (access sf 'height)
+                   :scale (access sf 'scale)
+                   :translate-x (access sf 'translate-x)
+                   :translate-y (access sf 'translate-y))))
 
 
 ;;;
