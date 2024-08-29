@@ -8,10 +8,19 @@
    :parse-number
    ;; :str
    :map-distort-engine.svg-file)
+
+  (:import-from :cl-cgal
+                #:point-x
+                #:point-y
+                #:point-like)
   (:export
    text-nearby-p*
    polyline-nearby-p*
    path-nearby-p*
+
+   text-inside-p*
+   polyline-inside-p*
+   path-inside-p*
 
    ;; polyline
    polyline
@@ -325,6 +334,9 @@
            )
       (cons x y))))
 
+;;;
+;;; convert from 0..1 to diagram
+;;;
 (defun view->diagram* (sf p)
   (check-type sf svg-file)
   (check-type p cl-cgal:point-like)
@@ -457,6 +469,87 @@
                         (expt (- (cdr p2) (cdr p1)) 2)))))
     (< dist max-distance)))
 
+;;;
+;;;
+;;; INSIDE PREDICATES
+;;;
+;;;
+
+;;;
+;;; INSIDE / TEXT
+;;;
+;;; contour coordinates are 0..1
+(defun text-inside-p* (sf el contour)
+  (let* ((d-contour (mapcar (lambda (p)
+                              (view->diagram* sf p))
+                            contour))
+         (el-x (or (plump:attribute el "x")
+                   (error 'svg-attr-not-found "x")))
+         (el-y (or (plump:attribute el "y")
+                   (error 'svg-attr-not-found "y")))
+         (el-x (parse-number el-x))
+         (el-y (parse-number el-y)))
+    (cl-cgal:is-inside d-contour (cons el-x el-y))))
+
+;;;
+;;; INSIDE / POLYLINE
+;;;
+;;; contour coordinates are 0..1
+(defun polyline-inside-p* (sf svg-pline contour)
+  (let* ((d-contour (mapcar (lambda (p)
+                              (view->diagram* sf p))
+                            contour))
+         ;; to polyline object
+         (pline (svg->polyline svg-pline)))
+    (cl-cgal:intersect-p d-contour (polyline-points pline))
+    ;; true when at least one point of pline is inside contour
+    ;; (some (lambda (pline-point)
+    ;;         (cl-cgal:is-inside d-contour pline-point))
+    ;;       (polyline-points pline))
+    ))
+
+;;;
+;;; INSIDE / PATH
+;;;
+;;; contour coordinates are 0..1
+(defun path-inside-p* (sf svg-path contour)
+  (let* ((d-contour (mapcar (lambda (p)
+                              (view->diagram* sf p))
+                            contour))
+         ;; to path object
+         (p (svg->path svg-path)))
+    (cl-cgal:intersect-p d-contour (path-points p))
+    ;; ;; at least one point of path is inside
+    ;; (some (lambda (path-d-el)
+    ;;         (cond
+    ;;           ((consp path-d-el)
+    ;;            (cl-cgal:is-inside d-contour path-d-el))
+    ;;           ;; not relevant to path cmds
+    ;;           (t nil)))
+    ;;       (path-d p))
+    ))
+
+
+;;;
+;;;
+;;; COORD UTILS
+;;;
+;;;
+
+;; ;;;
+;; ;;; 0..1 -> diagram coords
+;; ;;;
+;; (defun f-point->diagram-point (sf p)
+;;   (check-type p point-like)
+;;   (check-type (point-x p) float)
+;;   (check-type (point-y p) float)
+
+;;   (let* ((x (point-x p))
+;;          (y (point-y p))
+;;          ;; to view coords
+;;          (x (* x (svg-file-width sf)))
+;;          (y (* y (svg-file-height sf)))
+;;          (d-point (view->diagram* sf p)))))
 
 ;;;
 ;;;

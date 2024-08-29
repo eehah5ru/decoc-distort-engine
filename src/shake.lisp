@@ -11,7 +11,15 @@
    )
 
   (:export
-   shake-position-nearby-f))
+   shake-position-nearby-f
+   randomise-text-position
+   randomise-polyline-position
+   randomise-path-position
+   randomise-text-position*
+   randomise-polyline-position*
+   randomise-path-position*
+
+   ))
 
 (in-package :map-distort-engine.shaker)
 
@@ -32,7 +40,7 @@
 ;;;
 ;;; LQUERY / RANDOMIZE / TEXT POSITION
 ;;;
-(define-lquery-function randomise-text-position (n radius)
+(defun randomise-text-position* (n radius)
   ;; (log:info "randomising / text")
 
   (let* ((x (or (plump:attribute n "x")
@@ -54,25 +62,39 @@
     ;; return node
     n))
 
+;;; lquery version
+(define-lquery-function randomise-text-position (n radius)
+  (randomise-text-position* n radius))
+
 ;;;
 ;;; LQUERY / RANDOMIZE / POLYLINE POSITION
 ;;;
-(define-lquery-function randomise-polyline-position (n radius)
-    ;; (log:info "randomising / polyline")
+(defun randomise-polyline-position* (n radius)
+  ;; (log:info "randomising / polyline")
 
   (let* ((pline (svg->polyline n))
          (translate-vec (mk-rand-position-vector radius)))
     (translate pline translate-vec)
     (polyline->svg pline n)))
 
+;;; lquery version
+(define-lquery-function randomise-polyline-position (n radius)
+  (randomise-polyline-position* n radius))
+
 ;;;
 ;;; LQUERY / RANDOMIZE / PATH POSITION
 ;;;
-(define-lquery-function randomise-path-position (n radius)
+(defun randomise-path-position* (n radius)
+  ;; (log:info "randomising / path")
+
   (let* ((p (svg->path n))
          (translate-vec (mk-rand-position-vector radius)))
     (translate p translate-vec)
     (path->svg p n)))
+
+;;; lquery version
+(define-lquery-function randomise-path-position (n radius)
+  (randomise-path-position* n radius))
 
 ;;;
 ;;;
