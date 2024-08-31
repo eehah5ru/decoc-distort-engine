@@ -22,6 +22,9 @@
 ;;; PARAMETERS
 ;;;
 ;;;
+
+(defvar *profiling-ofx* nil)
+
 (defparameter *in-file-path*
   (asdf:system-relative-pathname
    :map-distort-engine
@@ -55,6 +58,34 @@
 (define-condition unknown-ofx-cmd (error)
   ())
 
+;;;
+;;; profiling helper
+;;;
+;;; accurate version
+;;; TODO: need to have functions to profile
+;; (defmacro with-profiling-ofx (out-file &body body)
+;;   `(if *profiling-ofx*
+;;        (unwind-protect
+;;             (progn
+;;               (sb-profile:reset)
+;;               (sb-profile:profile map-distort-engine.contours-keyer::shake-positions-inside-contour)
+;;               ,@body)
+;;          (sb-profile:report))
+;;        (progn
+;;          ,@body)))
+
+;; flamegraph version
+(defmacro with-profiling-ofx (out-file &body body)
+  `(if *profiling-ofx*
+       (let ((sb-sprof:*max-samples* 50000)
+             (sb-sprof:*sample-interval* 0.0001))
+           (flamegraph:save-flame-graph
+               (,out-file
+                :mode :time
+                :threads :all)
+             ,@body))
+       (progn
+         ,@body)))
 
 ;;;
 ;;;
@@ -115,26 +146,23 @@
   ;;           *mouse-x*
   ;;           *mouse-y*)
 
-  (time
-   (progn
-     ;; (sb-sprof:start-profiling)
-     (flamegraph:save-flame-graph
-         ("tmp/cmd-shake-positions.stack")
-         (patch-svg
-          (lambda (sf)
-            ;; (shake-position-nearby-f sf *mouse-x* *mouse-y* 200.0)
-            ;; (map-distort-engine.shifter::shift-positions-out-of-circle-f
-            ;;  sf
-            ;;  *mouse-x*
-            ;;  *mouse-y*
-            ;;  200.0)
+  (with-profiling-ofx "tmp/cmd-shake-positions.stack"
+    (time
+     (patch-svg
+      (lambda (sf)
+        ;; (shake-position-nearby-f sf *mouse-x* *mouse-y* 200.0)
+        ;; (map-distort-engine.shifter::shift-positions-out-of-circle-f
+        ;;  sf
+        ;;  *mouse-x*
+        ;;  *mouse-y*
+        ;;  200.0)
 
-            (map-distort-engine.contours-keyer::shake-positions-inside-contours sf *contours*)
-            )
-          :on-patched (lambda ()
-                        (send-osc-map-updated))))
-    ;; (sb-sprof:report :type :flat))
-   )))
+        (map-distort-engine.contours-keyer::shake-positions-inside-contours sf *contours*)
+        )
+      :on-patched (lambda ()
+                    (send-osc-map-updated)))))
+  ;; (sb-sprof:report :type :flat))
+  )
 
 
 ;;;
@@ -176,7 +204,8 @@
 (defun ofx-shaker ()
   (log:info "starting shaker")
   (let* ((*svg-file* (mk-svg-file *in-file-path*))
-         (lparallel:*kernel* (lparallel:make-kernel 16))
+         (lparallel:*kernel* (lparallel:make-kernel 32))
+         (*profiling-ofx* nil)
          (port 12345)
          (send-port 12346)
          (s (socket-connect nil nil

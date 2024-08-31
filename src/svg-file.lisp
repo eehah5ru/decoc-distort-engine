@@ -76,7 +76,9 @@
     (error 'svg-file-does-not-exist))
 
   (let* ((abs-path (truename path))
-         (d (lquery:$ (initialize abs-path)))
+         (raw (uiop:read-file-string abs-path))
+         (raw (ppcre:regex-replace-all "<!--.+-->" raw ""))
+         (d (lquery:$ (initialize raw)))
          (dims (get-svg-dims d))
          (width (car dims))
          (height (cdr dims))
@@ -151,14 +153,10 @@
 
 (defun save-svg-to-file (an-svg-file path)
   (log:info "writing svg data to file ~a" path)
-  (let* ((d (xml-doc an-svg-file))
-         (content
-           (with-output-to-string (out)
-             (lquery:$ d
-               (serialize out :XML))))
-         (content (ppcre:regex-replace-all "<!--.+-->" content "")))
-    (with-output-to-file (out path :if-exists :supersede)
-      (format out "~a" content))))
+  (let* ((d (xml-doc an-svg-file)))
+    (with-open-file (out path :direction :output :if-exists :supersede)
+      (lquery:$ d
+               (serialize out :XML)))))
 
 
 ;;;

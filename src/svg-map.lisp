@@ -480,6 +480,7 @@
 ;;;
 ;;; contour coordinates are 0..1
 (defun text-inside-p* (sf el contour)
+  (declare (optimize (speed 3) (safety 0)))
   (let* ((d-contour (mapcar (lambda (p)
                               (view->diagram* sf p))
                             contour))
@@ -496,6 +497,7 @@
 ;;;
 ;;; contour coordinates are 0..1
 (defun polyline-inside-p* (sf svg-pline contour)
+  (declare (optimize (speed 3) (safety 0)))
   (let* ((d-contour (mapcar (lambda (p)
                               (view->diagram* sf p))
                             contour))
@@ -513,6 +515,7 @@
 ;;;
 ;;; contour coordinates are 0..1
 (defun path-inside-p* (sf svg-path contour)
+  (declare (optimize (speed 3) (safety 0)))
   (let* ((d-contour (mapcar (lambda (p)
                               (view->diagram* sf p))
                             contour))
