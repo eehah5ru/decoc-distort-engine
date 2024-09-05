@@ -15,6 +15,9 @@
   ;;               #:y)
 
   (:export
+   shift-out-text-position
+   shift-out-polyline-position
+   shift-out-path-position
    shift-position-nearby-f))
 
 (in-package :map-distort-engine.shifter)
@@ -28,10 +31,7 @@
 ;;;
 ;;; LQUERY / SHIFT OUT OF CIRCLE / TEXT POSITION
 ;;;
-
-(define-lquery-function
-    shift-out-text-position (n center radius)
-
+(defun shift-out-text-position (n center radius)
   (check-type center cons)
   (check-type radius float)
 
@@ -62,11 +62,15 @@
     ;; return node
     n))
 
+
+;;; lquery version
+(define-lquery-function shift-out-text-position* (n center radius)
+  (shift-out-text-position n center radius))
+
 ;; ;;;
 ;; ;;; LQUERY / SHIFT OUT OF CIRCLE / POLYLINE POSITION
 ;; ;;;
-(define-lquery-function
-    shift-out-polyline-position (n center radius)
+(defun shift-out-polyline-position (n center radius)
 
   (let* ((pline (svg->polyline n))
          (pline-points (polyline-points pline))
@@ -84,11 +88,14 @@
     (translate pline translate-vec)
     (polyline->svg pline n)))
 
+;;; lquery version
+(define-lquery-function shift-out-polyline-position* (n center radius)
+  (shift-out-polyline-position n center radius))
+
 ;; ;;;
 ;; ;;; LQUERY / SHIFT OUT OF CIRCLE / PATH POSITION
 ;; ;;;
-(define-lquery-function
-    shift-out-path-position (n center radius)
+(defun shift-out-path-position (n center radius)
   (let* ((p (svg->path n))
          (p-points (path-points p))
          (p-center (cl-cgal:centroid p-points))
@@ -101,45 +108,15 @@
                                  (- (cl-cgal:y p-center)
                                     (cl-cgal:y center)))))
 
-         ;; (max-walk (cl-cgal:distance center p-center))
-         ;; (max-walk 100)
-         ;; (scale-walk 4)
-         ;; (walk-x (*
-         ;;          scale-walk
-         ;;          (- (random max-walk)
-         ;;             (/ max-walk 2))))
-         ;; (walk-y (*
-         ;;          scale-walk
-         ;;          (- (random max-walk)
-         ;;             (/ max-walk 2))))
-         ;; (translate-vec (cons (+
-         ;;                       walk-x
-         ;;                       (* (/ d 1000)
-         ;;                          (- (cl-cgal:x p-center)
-         ;;                             (cl-cgal:x center))))
-         ;;                      (+
-         ;;                       walk-y
-         ;;                       (* (/ d 1000)
-         ;;                          (- (cl-cgal:y p-center)
-         ;;                             (cl-cgal:y center))))))
-
-         ;; (translate-vec (cons walk-x
-         ;;                      walk-y))
-         ;; (translate-vec (cons (- (cl-cgal:x p-center)
-         ;;                         (cl-cgal:x center))
-         ;;                      (- (cl-cgal:y p-center)
-         ;;                         (cl-cgal:y center))))
 
          )
-    ;; (log:info "distance: ~a, translate-vec: ~a"
-    ;;           (cl-cgal:distance center p-center)
-    ;;           translate-vec)
     (translate p translate-vec)
 
-    ;; (log:info "old-points: ~a~%new-points: ~a~%"
-    ;;           p-points
-    ;;           (path-points p))
     (path->svg p n)))
+
+;;; lquery version
+(define-lquery-function shift-out-path-position* (n center radius)
+  (shift-out-polyline-position n center radius))
 
 
 ;;;
@@ -163,7 +140,7 @@
                                   x
                                   y
                                   r)))
-      (shift-out-text-position (view->diagram*
+      (shift-out-text-position* (view->diagram*
                                 sf
                                 (cons x y)) r)
       (root)
@@ -175,7 +152,7 @@
                                       x
                                       y
                                       r)))
-      (shift-out-polyline-position (view->diagram*
+      (shift-out-polyline-position* (view->diagram*
                                     sf
                                     (cons x y)) r)
       (root)
@@ -187,7 +164,7 @@
                                   x
                                   y
                                   r)))
-      (shift-out-path-position (view->diagram*
+      (shift-out-path-position* (view->diagram*
                                 sf
                                 (cons x y)) r)
       (root)

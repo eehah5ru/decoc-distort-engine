@@ -41,6 +41,15 @@
 
 (defparameter *mouse-y* 0)
 
+;;; focus poosition
+;;; (x . y)
+(defparameter *focus-point* nil)
+
+;;; focus radius
+;;; float
+(defparameter *focus-radius* nil)
+
+
 ;;; list of current contours
 (defparameter *contours* (list))
 
@@ -97,6 +106,7 @@
 ;;; CMD / CONTOURS
 ;;;
 (defun cmd-contours (msg)
+  (declare (ignore msg))
   ;; gonna get new contours. empty current ones
   (setf *contours* (list))
   ;; (log:info "args are: ~a" (osc-args msg))
@@ -139,9 +149,21 @@
     (update-mouse x y)))
 
 ;;;
+;;; CMD / UPDATE MOUSE
+;;;
+(defun cmd-update-focus (msg)
+  (log:info "updating focus")
+  (let* ((focus (osc-args msg))
+         (x (car focus))
+         (y (cadr focus))
+         (radius (caddr focus)))
+    (update-focus x y radius)))
+
+;;;
 ;;; CMD / SHAKE POSITIONS
 ;;;
-(defun cmd-shake-positions (msg)
+(defun cmd-shake-positions-in-contours (msg)
+  (declare (ignore msg))
   ;; (log:info "shaking positions around mouse point: ~d ~d"
   ;;           *mouse-x*
   ;;           *mouse-y*)
@@ -162,6 +184,33 @@
       :on-patched (lambda ()
                     (send-osc-map-updated)))))
   ;; (sb-sprof:report :type :flat))
+  )
+
+;;;
+;;; CMD / SHAKE POSITIONS
+;;;
+(defun cmd-shake-positions-near-focus (msg)
+  (declare (ignore msg))
+  (log:info "shaking positions near focus point: ~d ~d, radius ~d"
+            (cl-cgal:x *focus-point*)
+            (cl-cgal:y *focus-point*)
+            *focus-radius*)
+
+  (with-profiling-ofx "tmp/cmd-shake-positions-near-focus.stack"
+    (time
+     (patch-svg
+      (lambda (sf)
+        ;; (shake-position-nearby-f sf *mouse-x* *mouse-y* 200.0)
+        ;; (map-distort-engine.shifter::shift-positions-out-of-circle-f
+        ;;  sf
+        ;;  *mouse-x*
+        ;;  *mouse-y*
+        ;;  200.0)
+
+        (map-distort-engine.focus-keyer::shake-positions-near-focus sf *focus-point* *focus-radius*)
+        )
+      :on-patched (lambda ()
+                    (send-osc-map-updated)))))
   )
 
 
@@ -188,9 +237,18 @@
       ((string= "/mouse/position" (osc-command msg))
        (cmd-update-mouse msg))
 
-      ;; shake position around mouse
-      ((string= "/shake/positions" (osc-command msg))
-       (cmd-shake-positions msg))
+      ;; focus point with radius
+      ((string= "/focus/position" (osc-command msg))
+       (cmd-update-focus msg))
+
+      ;; shake position in contours
+      ((string= "/shake/positions/in-contours" (osc-command msg))
+       (cmd-shake-positions-in-contours msg))
+
+      ;; shake position near focus
+      ((string= "/shake/positions/near-focus" (osc-command msg))
+       (cmd-shake-positions-near-focus msg))
+
 
       (t
        (log:error "unknown osc cmd: ~a" cmd)
@@ -256,6 +314,18 @@
 
   (setf *mouse-x* x)
   (setf *mouse-y* y))
+
+;;;
+;;; update focus params
+;;;
+;;; focus  position and radius is float in 0..1
+(defun update-focus (x y radius)
+  (check-type x float)
+  (check-type y float)
+  (check-type radius float)
+
+  (setf *focus-point* (cons x y))
+  (setf *focus-radius* radius))
 
 ;;;
 ;;;

@@ -40,6 +40,7 @@
 ;;;
 ;;; LQUERY / RANDOMIZE / TEXT POSITION
 ;;;
+;;; list version
 (defun randomise-text-position* (n radius)
   ;; (log:info "randomising / text")
 
@@ -98,6 +99,46 @@
 
 ;;;
 ;;;
+;;; svg file lazy accessors
+;;;
+;;;
+;;; TODO: extract in separate file
+
+;;;
+;;; TEXTS / lazy
+;;;
+(defmacro with-svg-file-texts (sf &body body)
+  (let ((d (gensym)))
+    `(progn
+       (let* ((,d (xml-doc ,sf))
+              (*texts* (lquery:$ ,d
+                         "text")))
+         ,@body))))
+;;;
+;;; POLYLINES / lazy
+;;;
+(defmacro with-svg-file-polylines (sf &body body)
+  (let ((d (gensym)))
+    `(progn
+       (let* ((,d (xml-doc ,sf))
+              (*polylines* (lquery:$ ,d
+                             "polyline")))
+         ,@body))))
+
+
+;;;
+;;; PATHES / lazy
+;;;
+(defmacro with-svg-file-pathes (sf &body body)
+  (let ((d (gensym)))
+    `(progn
+       (let* ((,d (xml-doc ,sf))
+              (*pathes* (lquery:$ ,d
+                          "path")))
+         ,@body))))
+
+;;;
+;;;
 ;;; SHAKE FUNCTIONS
 ;;;
 ;;;
@@ -111,6 +152,10 @@
   (check-type y float)
 
   (log:info "shaking positions")
+  ;; (with-svg-file-texts sf
+  ;;   (with-svg-file-polylines sf
+  ;;     (with-svg-file-pathes sf
+  ;;       )))
   (let* ((d (xml-doc sf)))
     (lquery:$ d
       ;; texts

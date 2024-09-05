@@ -36,7 +36,8 @@
                  (:file "ofx"
                   :depends-on ("shake"
                                "shift"
-                               "contours-keyer"))
+                               "contours-keyer"
+                               "focus-keyer"))
                  (:file "svg-file")
                  (:file "svg-map")
                  (:file "shake"
@@ -50,7 +51,12 @@
                   :depends-on ("svg-file"
                                "svg-map"
                                "shake"))
-                 
+
+                 (:file "focus-keyer"
+                  :depends-on ("svg-file"
+                               "svg-map"
+                               "shake"
+                               "shift"))
                  )))
   :description ""
   :long-description ""
