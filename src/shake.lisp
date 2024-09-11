@@ -45,9 +45,9 @@
   ;; (log:info "randomising / text")
 
   (let* ((x (or (plump:attribute n "x")
-                (error 'svg-attr-not-found)))
+                (error 'svg-attr-not-found :attr-name "x")))
          (y (or (plump:attribute n "y")
-                (error 'svg-attr-not-found)))
+                (error 'svg-attr-not-found :attr-name "y")))
          (x (parse-number x))
          (y (parse-number y))
          (dx (- (random radius)

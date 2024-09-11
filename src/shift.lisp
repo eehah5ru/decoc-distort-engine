@@ -36,9 +36,9 @@
   (check-type radius float)
 
   (let* ((x (or (plump:attribute n "x")
-                (error 'svg-attr-not-found)))
+                (error 'svg-attr-not-found :attr-name "x")))
          (y (or (plump:attribute n "y")
-                (error 'svg-attr-not-found)))
+                (error 'svg-attr-not-found :attr-name "y")))
          (x (parse-number x))
          (y (parse-number y))
          (d (cl-cgal:distance (cons x y) center))

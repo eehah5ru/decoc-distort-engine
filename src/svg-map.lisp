@@ -68,6 +68,10 @@
   ((attr-name
     :initarg :attr-name)))
 
+(define-condition svg-attr-not-found (error)
+  ((attr-name
+    :initarg :attr-name)))
+
 ;;;
 ;;;
 ;;; POLYLINE WRAPPER
@@ -89,7 +93,7 @@
 ;;;
 (defun svg->polyline (svg)
   (let* ((points (or (plump:attribute svg "points")
-                     (error 'svg-attr-not-found "points")))
+                     (error 'svg-attr-not-found :attr-name "points")))
          (points (str:words points))
          ;; get coords structure in text
          (points (mapcar (lambda (xy)
@@ -143,7 +147,7 @@
 ;;;
 (defun svg->path (svg)
   (let* ((d (or (plump:attribute svg "d")
-                (error 'svg-attr-not-found "d")))
+                (error 'svg-attr-not-found :attr-name "d")))
          (d (parse-raw-d d)))
     (make-instance 'path
                    :d d)))
@@ -365,18 +369,22 @@
                       y
                       &optional
                         (max-distance *max-nearby-distance*))
-  (let* ((el-x (or (plump:attribute el "x")
-                   (error 'svg-attr-not-found "x")))
-         (el-y (or (plump:attribute el "y")
-                   (error 'svg-attr-not-found "y")))
-         (el-x (parse-number el-x))
-         (el-y (parse-number el-y))
-         ;; point in diagam coords
-         (d-point (view->diagram sf (cons x y)))
-         (dist (sqrt (+ (expt (- el-x (car d-point)) 2)
-                        (expt (- el-y (cdr d-point)) 2)))))
-    ;; check if inside of given circle
-    (< dist max-distance)))
+  (handler-case
+      (let* ((el-x (or (plump:attribute el "x")
+                       (error 'svg-attr-not-found :attr-name "x")))
+             (el-y (or (plump:attribute el "y")
+                       (error 'svg-attr-not-found :attr-name "y")))
+             (el-x (parse-number el-x))
+             (el-y (parse-number el-y))
+             ;; point in diagam coords
+             (d-point (view->diagram sf (cons x y)))
+             (dist (sqrt (+ (expt (- el-x (car d-point)) 2)
+                            (expt (- el-y (cdr d-point)) 2)))))
+        ;; check if inside of given circle
+        (< dist max-distance))
+    (svg-attr-not-found (e)
+      ;; if no attr - return nil
+      nil)))
 
 ;;;
 ;;; NEARBY / TEXT / FLOAT COORDS
@@ -485,9 +493,9 @@
                               (view->diagram* sf p))
                             contour))
          (el-x (or (plump:attribute el "x")
-                   (error 'svg-attr-not-found "x")))
+                   (error 'svg-attr-not-found :attr-name "x")))
          (el-y (or (plump:attribute el "y")
-                   (error 'svg-attr-not-found "y")))
+                   (error 'svg-attr-not-found :attr-name "y")))
          (el-x (parse-number el-x))
          (el-y (parse-number el-y)))
     (cl-cgal:is-inside d-contour (cons el-x el-y))))
