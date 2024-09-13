@@ -8,11 +8,20 @@
    :osc
    :usocket
    ;; :lparallel
-
    :map-distort-engine.shaker
    :map-distort-engine.svg-file
    :map-distort-engine.contours-keyer
-   ))
+   )
+
+  (:import-from :cl-cgal
+                #:point-x
+                #:point-y
+                #:point-like
+                #:p
+                #:p-p
+                #:p-x
+                #:p-y
+                #:make-p))
 
 (in-package :map-distort-engine.ofx)
 
@@ -42,11 +51,13 @@
 (defparameter *mouse-y* 0)
 
 ;;; focus poosition
-;;; (x . y)
+;;;
+(declaim (type (or null p) *focus-point*))
 (defparameter *focus-point* nil)
 
 ;;; focus radius
 ;;; float
+(declaim (type (or null float) *focus-radius*))
 (defparameter *focus-radius* nil)
 
 
@@ -72,16 +83,25 @@
 ;;;
 ;;; accurate version
 ;;; TODO: need to have functions to profile
-;; (defmacro with-profiling-ofx (out-file &body body)
-;;   `(if *profiling-ofx*
-;;        (unwind-protect
-;;             (progn
-;;               (sb-profile:reset)
-;;               (sb-profile:profile map-distort-engine.contours-keyer::shake-positions-inside-contour)
-;;               ,@body)
-;;          (sb-profile:report))
-;;        (progn
-;;          ,@body)))
+(defmacro with-accurate-profiling-ofx (&body body)
+  `(if *profiling-ofx*
+       (unwind-protect
+            (progn
+              (sb-profile:reset)
+              (sb-profile:profile map-distort-engine.svg-map:text-nearby-p*
+                                  map-distort-engine.svg-map:polyline-nearby-p*
+                                  map-distort-engine.svg-map:path-nearby-p*
+                                  map-distort-engine.shaker:randomise-text-position*
+                                  map-distort-engine.shaker:randomise-polyline-position*
+                                  map-distort-engine.shaker:randomise-path-position*
+                                  map-distort-engine.shifter:shift-out-text-position
+                                  map-distort-engine.shifter:shift-out-polyline-position
+                                  map-distort-engine.shifter:shift-out-path-position
+                                  )
+              ,@body)
+         (sb-profile:report))
+       (progn
+         ,@body)))
 
 ;; flamegraph version
 (defmacro with-profiling-ofx (out-file &body body)
@@ -297,6 +317,27 @@
         (when *osc-out*
           (socket-close *osc-out*))))))
 
+;;;
+;;;
+;;; ofx local simulation without OSC
+;;;
+;;;
+(defun ofx-shaker-sim ()
+  (log:info "ofx-shaker-sim: starting")
+
+  (let*
+      ((*svg-file* (mk-svg-file *in-file-path*))
+       (lparallel:*kernel* (lparallel:make-kernel 32))
+       (*profiling-ofx* t))
+    (loop do
+          (with-accurate-profiling-ofx
+            (let* ((x (random 1.0))
+                   (y (random 1.0))
+                   (radius 0.2))
+              (update-focus x y radius)
+              (patch-svg
+               (lambda (sf)
+                 (time (map-distort-engine.focus-keyer::shake-positions-near-focus sf *focus-point* *focus-radius*)))))))))
 
 ;;;
 ;;;
@@ -324,7 +365,7 @@
   (check-type y float)
   (check-type radius float)
 
-  (setf *focus-point* (cons x y))
+  (setf *focus-point* (make-p :x x :y y))
   (setf *focus-radius* radius))
 
 ;;;
@@ -334,11 +375,12 @@
 ;;;
 ;;; patch svg file with patcher-func
 ;;;
-(defun patch-svg (patcher-func &key on-patched)
+(defun patch-svg (patcher-func &key (on-patched nil))
   (let* ((sf (clone-svg-file *svg-file*)))
     (apply patcher-func (list sf))
     (save-svg-to-file sf *out-file-path*)
-    (apply on-patched ())))
+    (when on-patched
+      (apply on-patched ()))))
 
 
 ;;;
@@ -382,7 +424,7 @@
               (let* ((x (car rest))
                      (y (cadr rest))
                      (rest (cddr rest))
-                     (point (cons x y))
+                     (point (make-p :x x :y y))
                      (points (cons point points)))
                 (fn points rest))))))
 

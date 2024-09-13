@@ -29,7 +29,8 @@
                "3d-math"
                :cl-cgal
                :sb-sprof
-               :flamegraph)  
+               :flamegraph
+               :function-cache)  
   :components ((:module "src"
                 :components
                 ((:file "main")

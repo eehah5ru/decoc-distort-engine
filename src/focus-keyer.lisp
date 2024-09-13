@@ -22,6 +22,15 @@
                 shift-out-polyline-position
                 shift-out-path-position)
 
+  (:import-from :cl-cgal
+                #:point-x
+                #:point-y
+                #:point-like
+                #:p
+                #:p-p
+                #:p-x
+                #:p-y
+                #:make-p)
 
   )
 
@@ -31,6 +40,9 @@
 (defvar *polylines* nil)
 (defvar *pathes* nil)
 
+;;; used in pmap's :parts
+(defparameter *lparallel-parts* nil)
+
 ;;;
 ;;; PARALLEL PROCESS ALL TEXTS
 ;;;
@@ -38,11 +50,12 @@
   (when (not (member strategy '(:shift :randomise)))
     (error "unknown process strategy: ~a" strategy))
 
+  (check-type focus p)
   (let* ((focus-x (cl-cgal:x focus))
          (focus-y (cl-cgal:y focus))
          ;; in diagram coords
          (focus* (view->diagram* sf focus))
-         (radius* (view->diagram* sf (cons radius radius)))
+         (radius* (view->diagram* sf (make-p :x radius :y radius)))
          (radius* (min (cl-cgal:x radius*) (cl-cgal:y radius*)))
          )
     (lparallel:pmap 'vector
@@ -59,6 +72,7 @@
                            (randomise-text-position* node radius*)))
                         )
                       node)
+                    :parts *lparallel-parts*
                     nodes))
   )
 
@@ -77,7 +91,7 @@
          (focus-y (cl-cgal:y focus))
          ;; in diagram coords
          (focus* (view->diagram* sf focus))
-         (radius* (view->diagram* sf (cons radius radius)))
+         (radius* (view->diagram* sf (make-p :x radius :y radius)))
          (radius* (min (cl-cgal:x radius*) (cl-cgal:y radius*))))
     (lparallel:pmap 'vector
                     (lambda (node)
@@ -93,6 +107,7 @@
                            (randomise-polyline-position* node radius*)))
                         )
                       node)
+                    :parts *lparallel-parts*
                     nodes)))
 
 ;; ;;; lquery version
@@ -110,7 +125,7 @@
          (focus-y (cl-cgal:y focus))
          ;; in diagram coords
          (focus* (view->diagram* sf focus))
-         (radius* (view->diagram* sf (cons radius radius)))
+         (radius* (view->diagram* sf (make-p :x radius :y radius)))
          (radius* (min (cl-cgal:x radius*) (cl-cgal:y radius*))))
     (lparallel:pmap 'vector
                     (lambda (node)
@@ -126,6 +141,7 @@
                            (randomise-path-position* node radius*)))
                         )
                       node)
+                    :parts *lparallel-parts*
                     nodes)))
 
 ;; ;;; lquery version

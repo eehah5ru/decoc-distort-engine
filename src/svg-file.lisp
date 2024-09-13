@@ -34,6 +34,22 @@
 ;;;
 ;;; SVG FILE CLASS
 ;;;
+(declaim (ftype (function (svg-file)
+                          float)
+                svg-file-scale)
+         (ftype (function (svg-file)
+                          float)
+                svg-file-width)
+         (ftype (function (svg-file)
+                          float)
+                svg-file-height)
+         (ftype (function (svg-file)
+                          float)
+                svg-file-translate-x)
+         (ftype (function (svg-file)
+                          float)
+                svg-file-translate-y))
+
 (defclass svg-file ()
   ((path  :initarg :path
           :initform nil
@@ -46,26 +62,32 @@
 
    (width
     :initarg :width
+    :type float
     :accessor svg-file-width)
 
    (height
     :initarg :height
+    :type float
     :accessor svg-file-height)
 
    (scale
     :initarg :scale
+    :type float
     :initform 1.0
     :accessor svg-file-scale)
 
    (translate-x
+    :type float
     :initarg :translate-x
-    :initform 0
+    :initform 0.0
     :accessor svg-file-translate-x)
 
    (translate-y
+    :type float
     :initarg :translate-y
-    :initform 0
+    :initform 0.0
     :accessor svg-file-translate-y)))
+
 
 ;;;
 ;;; factory method

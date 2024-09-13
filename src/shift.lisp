@@ -10,6 +10,17 @@
    :map-distort-engine.svg-map
    )
 
+  (:import-from :cl-cgal
+                #:point-x
+                #:point-y
+                #:point-like
+                #:p
+                #:p-p
+                #:p-x
+                #:p-y
+                #:make-p)
+
+
   ;; (:import-from #:cl-cgal
   ;;               #:x
   ;;               #:y)
@@ -32,7 +43,7 @@
 ;;; LQUERY / SHIFT OUT OF CIRCLE / TEXT POSITION
 ;;;
 (defun shift-out-text-position (n center radius)
-  (check-type center cons)
+  (check-type center p)
   (check-type radius float)
 
   (let* ((x (or (plump:attribute n "x")
@@ -41,16 +52,16 @@
                 (error 'svg-attr-not-found :attr-name "y")))
          (x (parse-number x))
          (y (parse-number y))
-         (d (cl-cgal:distance (cons x y) center))
+         (d (cl-cgal:distance (make-p :x x :y y) center))
          (d (/ radius d))
          (np (cl-cgal:with-transformation
                  tr
                  (cl-cgal:make-translate
-                  (cons 0 0)
-                  (cons (* d
-                           x )
-                        (* d y)))
-               (cl-cgal:transform tr (cons x y))))
+                  (make-p :x 0.0 :y 0.0)
+                  (make-p :x (* d
+                                x )
+                          :y (* d y)))
+               (cl-cgal:transform tr (make-p :x x :y y))))
 
          (nx (cl-cgal:x np))
          (ny (cl-cgal:y np))
@@ -78,12 +89,12 @@
          (d (cl-cgal:distance center pline-center))
 
          (d (/ radius d))
-         (translate-vec (cons (* d
-                                 (- (cl-cgal:x pline-center)
-                                    (cl-cgal:x center)))
-                              (* d
-                                 (- (cl-cgal:y pline-center)
-                                    (cl-cgal:y center)))))
+         (translate-vec (make-p :x (* d
+                                      (- (cl-cgal:x pline-center)
+                                         (cl-cgal:x center)))
+                                :y (* d
+                                      (- (cl-cgal:y pline-center)
+                                         (cl-cgal:y center)))))
          )
     (translate pline translate-vec)
     (polyline->svg pline n)))
@@ -96,23 +107,23 @@
 ;; ;;; LQUERY / SHIFT OUT OF CIRCLE / PATH POSITION
 ;; ;;;
 (defun shift-out-path-position (n center radius)
-  (let* ((p (svg->path n))
-         (p-points (path-points p))
+  (let* ((pth (svg->path n))
+         (p-points (path-points pth))
          (p-center (cl-cgal:centroid p-points))
          (d (cl-cgal:distance center p-center))
          (d (/ radius d))
-         (translate-vec (cons (* d
-                                 (- (cl-cgal:x p-center)
-                                    (cl-cgal:x center)))
-                              (* d
-                                 (- (cl-cgal:y p-center)
-                                    (cl-cgal:y center)))))
+         (translate-vec (make-p :x (* d
+                                      (- (cl-cgal:x p-center)
+                                         (cl-cgal:x center)))
+                                :y (* d
+                                      (- (cl-cgal:y p-center)
+                                         (cl-cgal:y center)))))
 
 
          )
-    (translate p translate-vec)
+    (translate pth translate-vec)
 
-    (path->svg p n)))
+    (path->svg pth n)))
 
 ;;; lquery version
 (define-lquery-function shift-out-path-position* (n center radius)
@@ -142,7 +153,7 @@
                                   r)))
       (shift-out-text-position* (view->diagram*
                                 sf
-                                (cons x y)) r)
+                                (make-p :x x :y y)) r)
       (root)
       ;; polylines
       "polyline"
@@ -154,7 +165,7 @@
                                       r)))
       (shift-out-polyline-position* (view->diagram*
                                     sf
-                                    (cons x y)) r)
+                                    (make-p :x x :y y)) r)
       (root)
       ;; pathes
       "path"
@@ -166,7 +177,7 @@
                                   r)))
       (shift-out-path-position* (view->diagram*
                                 sf
-                                (cons x y)) r)
+                                (make-p :x x :y y)) r)
       (root)
 
       )))

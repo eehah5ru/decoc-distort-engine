@@ -10,6 +10,17 @@
    :map-distort-engine.svg-map
    )
 
+  (:import-from :cl-cgal
+                #:point-x
+                #:point-y
+                #:point-like
+                #:p
+                #:p-p
+                #:p-x
+                #:p-y
+                #:make-p)
+
+
   (:export
    shake-position-nearby-f
    randomise-text-position
@@ -48,8 +59,8 @@
                 (error 'svg-attr-not-found :attr-name "x")))
          (y (or (plump:attribute n "y")
                 (error 'svg-attr-not-found :attr-name "y")))
-         (x (parse-number x))
-         (y (parse-number y))
+         (x (coerce (parse-number x) 'float))
+         (y (coerce (parse-number y) 'float))
          (dx (- (random radius)
                 (/ radius 2)))
          (dy (- (random radius)
@@ -88,10 +99,10 @@
 (defun randomise-path-position* (n radius)
   ;; (log:info "randomising / path")
 
-  (let* ((p (svg->path n))
+  (let* ((pth (svg->path n))
          (translate-vec (mk-rand-position-vector radius)))
-    (translate p translate-vec)
-    (path->svg p n)))
+    (translate pth translate-vec)
+    (path->svg pth n)))
 
 ;;; lquery version
 (define-lquery-function randomise-path-position (n radius)
@@ -187,13 +198,13 @@
 
 ;;;
 ;;; MAKE RANDOMIZING VECTOR
-;;; -> cons x y
+;;; -> cgal:p x y
 ;;;
 (defun mk-rand-position-vector (radius)
-  (cons (- (random radius)
-           (/ radius 2))
-        (- (random radius)
-           (/ radius 2))))
+  (make-p :x (- (random radius)
+                (/ radius 2))
+          :y (- (random radius)
+                (/ radius 2))))
 
 
 ;;;

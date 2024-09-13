@@ -12,7 +12,12 @@
   (:import-from :cl-cgal
                 #:point-x
                 #:point-y
-                #:point-like)
+                #:point-like
+                #:p
+                #:p-p
+                #:p-x
+                #:p-y
+                #:make-p)
   (:export
    text-nearby-p*
    polyline-nearby-p*
@@ -73,6 +78,11 @@
     :initarg :attr-name)))
 
 ;;;
+;;; global optimisation rules
+;;;
+;; (declaim (optimize (speed 3) (safety 0)))
+
+;;;
 ;;;
 ;;; POLYLINE WRAPPER
 ;;;
@@ -85,12 +95,15 @@
         :accessor polyline-svg)
    (points
     :initarg :points
+    :type (or null
+              (array p))
     :initform nil
     :accessor polyline-points)))
 
 ;;;
 ;;; factory method from SVG
 ;;;
+;; (declaim (inline svg->polyline))
 (defun svg->polyline (svg)
   (let* ((points (or (plump:attribute svg "points")
                      (error 'svg-attr-not-found :attr-name "points")))
@@ -101,8 +114,8 @@
                          points))
          ;; convert to numbers
          (points (mapcar (lambda (xy)
-                           (cons (parse-number (car xy))
-                                 (parse-number (cadr xy))))
+                           (make-p :x (coerce (parse-number (car xy)) 'float)
+                                   :y (coerce (parse-number (cadr xy)) 'float)))
                          points)))
     ;; (log:info points)
     (make-instance 'polyline
@@ -121,8 +134,8 @@
                   (lambda (point)
                     (format nil
                             "~a,~a"
-                            (car point)
-                            (cdr point)))
+                            (p-x point)
+                            (p-y point)))
                   points))
          (points (str:unwords points)))
     (setf (plump:attribute svg "points")
@@ -155,8 +168,8 @@
 ;;;
 ;;; PATH -> SVG
 ;;;
-(defun path->svg (p svg)
-  (let* ((d (path-d p))
+(defun path->svg (pt svg)
+  (let* ((d (path-d pt))
          (d (mapcar
              (lambda (d-el)
                (cond
@@ -164,8 +177,8 @@
                  ((stringp d-el)
                   d-el)
                  ;; coord pair -> to string
-                 ((consp d-el)
-                  (format nil "~a ~a" (car d-el) (cdr d-el)))
+                 ((p-p d-el)
+                  (format nil "~a ~a" (p-x d-el) (p-y d-el)))
 
                  (t
                   (error "malformed path d"))
@@ -202,15 +215,15 @@
                    (cond
                      ;; storing x in r
                      ((stringp (car r))
-                      (let* ((x (parse-number x)))
+                      (let* ((x (coerce (parse-number x) 'float)))
                         (cons x r)))
                      ;; x is already in r
                      ;; making coord pair
                      ((numberp (car r))
-                      (let* ((y (parse-number x))
+                      (let* ((y (coerce (parse-number x) 'float))
                              (x (car r))
                              (r (cdr r))
-                             (coords (cons x y)))
+                             (coords (make-p :x x :y y)))
                         (cons coords r)))
                      ;; error
                      (t
@@ -231,7 +244,7 @@
                            (cond
                              ((stringp i)
                               nil)
-                             ((consp i)
+                             ((p-p i)
                               i)))
                          d))))
     ;; return only points
@@ -249,13 +262,13 @@
   ;;
   ;; translate single point
   ;;
-  (:method ((o cons) (vec cons))
-    (cons (+ (car o) (car vec))
-          (+ (cdr o) (cdr vec))))
+  (:method ((o p) (vec p))
+    (make-p :x (+ (p-x o) (p-y vec))
+            :y (+ (p-x o) (p-y vec))))
   ;;
   ;; translate polyline
   ;;
-  (:method ((o polyline) (vec cons))
+  (:method ((o polyline) (vec p))
     (let* ((points (polyline-points o))
            (points (mapcar
                     (lambda (point)
@@ -270,7 +283,7 @@
   ;;
   ;; translate path
   ;;
-  (:method ((o path) (vec cons))
+  (:method ((o path) (vec p))
     (let* ((d (path-d o))
            (d (mapcar
                (lambda (d-el)
@@ -279,7 +292,7 @@
                    ((stringp d-el)
                     d-el)
                    ;; coords -> translate
-                   ((consp d-el)
+                   ((p-p d-el)
                     (translate d-el vec))))
                d)))
       (setf (access o 'd)
@@ -303,10 +316,10 @@
 
   ;; number
   (:method ((sf svg-file)
-            (o number)
+            (o float)
             &key
               ;; do not translate by default
-              (translate 0)
+              (translate 0.0)
             &allow-other-keys)
 
     (let* ((r (/ o (svg-file-scale sf)))
@@ -316,14 +329,14 @@
 
   ;; point
   (:method ((sf svg-file)
-            (point cons)
+            (point p)
             &key
             &allow-other-keys)
 
-    (check-type point cons)
+    (check-type point p)
 
-    (let* ((v-x (car point))
-           (v-y (cdr point))
+    (let* ((v-x (p-x point))
+           (v-y (p-y point))
            (x (view->diagram
                sf
                v-x
@@ -336,20 +349,20 @@
            ;; (x v-x)
            ;; (y v-y)
            )
-      (cons x y))))
+      (make-p :x x :y y))))
 
 ;;;
 ;;; convert from 0..1 to diagram
 ;;;
-(defun view->diagram* (sf p)
+(defun view->diagram* (sf pt)
   (check-type sf svg-file)
-  (check-type p cl-cgal:point-like)
+  (check-type pt p)
 
-  (view->diagram sf (cons
-                     (* (svg-file-width sf)
-                        (cl-cgal:x p))
-                     (* (svg-file-height sf)
-                        (cl-cgal:y p))))
+  (view->diagram sf (make-p
+                     :x (* (svg-file-width sf)
+                           (p-x pt))
+                     :y (* (svg-file-height sf)
+                        (p-y pt))))
   )
 
 ;;;
@@ -374,15 +387,16 @@
                        (error 'svg-attr-not-found :attr-name "x")))
              (el-y (or (plump:attribute el "y")
                        (error 'svg-attr-not-found :attr-name "y")))
-             (el-x (parse-number el-x))
-             (el-y (parse-number el-y))
+             (el-x (coerce (parse-number el-x) 'float))
+             (el-y (coerce (parse-number el-y) 'float))
              ;; point in diagam coords
-             (d-point (view->diagram sf (cons x y)))
-             (dist (sqrt (+ (expt (- el-x (car d-point)) 2)
-                            (expt (- el-y (cdr d-point)) 2)))))
+             (d-point (view->diagram sf (make-p :x x :y y)))
+             (dist (sqrt (+ (expt (- el-x (p-x d-point)) 2)
+                            (expt (- el-y (p-y d-point)) 2)))))
         ;; check if inside of given circle
         (< dist max-distance))
     (svg-attr-not-found (e)
+      (declare (ignore e))
       ;; if no attr - return nil
       nil)))
 
@@ -425,7 +439,7 @@
 
   (let* ((x (* x (svg-file-width sf)))
          (y (* y (svg-file-height sf)))
-         (point (cons x y))
+         (point (make-p :x x :y y))
          (point (view->diagram sf point))
          (pline (svg->polyline svg-pline)))
     ;; true when at least one is nearby
@@ -451,9 +465,9 @@
 
   (let* ((x (* x (svg-file-width sf)))
          (y (* y (svg-file-height sf)))
-         (point (cons x y))
+         (point (make-p :x x :y y))
          (point (view->diagram sf point))
-         (p (svg->path svg-path)))
+         (pth (svg->path svg-path)))
     (some (lambda (path-d-el)
             (cond
               ((consp path-d-el)
@@ -463,18 +477,19 @@
               ;; false for path cmds
               (t
                nil)))
-          (path-d p))))
+          (path-d pth))))
+
 ;;;
 ;;; NEARBY / UTILS
 ;;;
 (defun points-nearby-p (p1
                         p2
                         &optional
-                         (max-distance *max-nearby-distance*))
-  (check-type p1 cons)
-  (check-type p2 cons)
-  (let* ((dist (sqrt (+ (expt (- (car p2) (car p1)) 2)
-                        (expt (- (cdr p2) (cdr p1)) 2)))))
+                          (max-distance *max-nearby-distance*))
+  (check-type p1 p)
+  (check-type p2 p)
+  (let* ((dist (sqrt (+ (expt (- (p-x p2) (p-x p1)) 2)
+                        (expt (- (p-y p2) (p-y p1)) 2)))))
     (< dist max-distance)))
 
 ;;;
@@ -488,26 +503,26 @@
 ;;;
 ;;; contour coordinates are 0..1
 (defun text-inside-p* (sf el contour)
-  (declare (optimize (speed 3) (safety 0)))
-  (let* ((d-contour (mapcar (lambda (p)
-                              (view->diagram* sf p))
+  ;; (declare (optimize (speed 3) (safety 0)))
+  (let* ((d-contour (mapcar (lambda (pt)
+                              (view->diagram* sf pt))
                             contour))
          (el-x (or (plump:attribute el "x")
                    (error 'svg-attr-not-found :attr-name "x")))
          (el-y (or (plump:attribute el "y")
                    (error 'svg-attr-not-found :attr-name "y")))
-         (el-x (parse-number el-x))
-         (el-y (parse-number el-y)))
-    (cl-cgal:is-inside d-contour (cons el-x el-y))))
+         (el-x (coerce (parse-number el-x) 'float))
+         (el-y (coerce (parse-number el-y) 'float)))
+    (cl-cgal:is-inside d-contour (make-p :x el-x :y el-y))))
 
 ;;;
 ;;; INSIDE / POLYLINE
 ;;;
 ;;; contour coordinates are 0..1
 (defun polyline-inside-p* (sf svg-pline contour)
-  (declare (optimize (speed 3) (safety 0)))
-  (let* ((d-contour (mapcar (lambda (p)
-                              (view->diagram* sf p))
+  ;; (declare (optimize (speed 3) (safety 0)))
+  (let* ((d-contour (mapcar (lambda (pt)
+                              (view->diagram* sf pt))
                             contour))
          ;; to polyline object
          (pline (svg->polyline svg-pline)))
@@ -523,13 +538,13 @@
 ;;;
 ;;; contour coordinates are 0..1
 (defun path-inside-p* (sf svg-path contour)
-  (declare (optimize (speed 3) (safety 0)))
-  (let* ((d-contour (mapcar (lambda (p)
-                              (view->diagram* sf p))
+  ;; (declare (optimize (speed 3) (safety 0)))
+  (let* ((d-contour (mapcar (lambda (pt)
+                              (view->diagram* sf pt))
                             contour))
          ;; to path object
-         (p (svg->path svg-path)))
-    (cl-cgal:intersect-p d-contour (path-points p))
+         (pth (svg->path svg-path)))
+    (cl-cgal:intersect-p d-contour (path-points pth))
     ;; ;; at least one point of path is inside
     ;; (some (lambda (path-d-el)
     ;;         (cond
