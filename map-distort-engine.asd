@@ -27,6 +27,7 @@
                "usocket"
                "lparallel"
                "3d-math"
+               :split-sequence 
                :cl-cgal
                :sb-sprof
                :flamegraph
