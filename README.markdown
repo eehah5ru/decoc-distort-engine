@@ -1,17 +1,11 @@
-# Map-Distort-Engine - 
+# clean svg in inkscape
 
-## Usage
+## How to move all objects altogether without creating another transform attributes
 
-## Installation
+    Go to Edit -> Select All in All Layers
+    Go to Object -> Transform
 
-## Author
+## In Transform panel
 
-* eehah5ru (eeefff.org@riseup.net)
-
-## Copyright
-
-Copyright (c) 2024 eehah5ru (eeefff.org@riseup.net)
-
-## License
-
-Licensed under the MIT License.
+    Uncheck Relative move and check Apply to each object separately
+    Set Horizontal and Vertical values according to your needs and click Apply
