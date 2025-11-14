@@ -28,7 +28,32 @@
 ;;; CONDITIONS
 ;;;
 ;;;
-(define-condition svg-file-does-not-exist (file-error)
+
+(define-condition  svg-file-error (simple-error)
+  ())
+
+(define-condition svg-file-does-not-exist (file-error svg-file-error)
+  ())
+
+(define-condition  svg-attr-not-found (svg-file-error)
+  ((attr-name :initarg :attr-name :reader attr-name))
+
+  (:report (lambda (condition stream)
+             (format stream
+                     "missing svg attr '~a'"
+                     (access:access condition 'attr-name)))))
+
+(define-condition  svg-wrong-attr-value (svg-file-error)
+  ((attr-name :initarg :attr-name)
+   (value :initarg  :value))
+
+  (:report (lambda (condition stream)
+             (format stream
+                     "wrong svg attr value '~a': ~a"
+                     (access:access condition 'attr-name)
+                     (access:access condition 'value)))))
+
+(define-condition svg-parse-error (svg-file-error)
   ())
 
 ;;;
@@ -138,23 +163,77 @@
 ;;;
 ;;;
 
+;;; parse string and return
+(defun parse-view-box (doc)
+  "parse string and return width and height"
+
+  (handler-case
+      (let* ((view-box-str (or (lquery:$1 doc
+                                 "svg"
+                                 (attr "viewBox"))
+                               (error 'svg-parse-error)))
+             (vals (or (mapcar #'parse-integer
+                               (split-sequence:split-sequence #\Space
+                                                              view-box-str))
+                       (error  'svg-parse-error))))
+
+        (unless (and (= 0 (nth 0 vals))
+                     (= 0 (nth 1 vals)))
+          (error 'svg-wrong-attr-value
+                 :attr-name "viewBox"
+                 :value view-box-str))
+        ;; return width and height
+        (list (nth 2 vals) (nth 3 vals)))
+    ;; return '(nil nil) in case of error
+    (svg-parse-error (e)
+      '(nil nil)))
+  )
+
+;;;
+;;; parse width from svg file
+;;;
+(defun parse-width (doc)
+  "integer width or nil"
+  (handler-case (let* ((width (or (lquery:$1 doc
+                                    "svg"
+                                    (attr "width"))
+                                  (error 'svg-parse-error)))
+                       (width (ppcre:regex-replace "pt" width ""))
+                       (width (parse-integer width)))
+                  width)
+    (svg-parse-error (e)
+      ;; return nil
+      nil)))
+
+;;;
+;;; parse height from svg file
+;;;
+(defun parse-heigth (doc)
+  "integer height or nil"
+
+  (handler-case (let* ((height (or (lquery:$1 doc
+                                     "svg"
+                                     (attr "height"))
+                                   (error 'svg-parse-error)))
+                       (height (ppcre:regex-replace "pt" height ""))
+                       (height (parse-integer height))
+)
+                  height)
+    (svg-parse-error (e)
+      ;; retunr nil
+      nil)))
+
 ;;;
 ;;; get dims
 ;;;
 (defun get-svg-dims (doc)
-  (let* ((width (or (lquery:$1 doc
-                      "svg"
-                      (attr "width")
-                      )
-                    (error 'svg-attr-not-found "width")))
-         (height (or (lquery:$1 doc
-                       "svg"
-                       (attr "height"))
-                     (error 'svg-attr-not-found "height")))
-         (width (ppcre:regex-replace "pt" width ""))
-         (height (ppcre:regex-replace "pt" height ""))
-         (width (parse-integer width))
-         (height (parse-integer height)))
+  (let* ((view-box-width-height (parse-view-box doc))
+         (width (or (parse-width doc)
+                    (nth 0 view-box-width-height)
+                    (error 'svg-attr-not-found :attr-name "width or viewBox:widht")))
+         (height (or (parse-heigth doc)
+                     (nth 1 view-box-width-height)
+                     (error 'svg-attr-not-found :attr-name "height or viewBox:height"))))
     (cons width height)))
 
 ;; ;;;
