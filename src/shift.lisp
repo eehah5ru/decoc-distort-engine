@@ -196,7 +196,7 @@
 ;;                              100.0)
 ;;     (save-svg-to-file sf "data/test_map_out.svg")))
 
-(defun test-shift-oot-of-circle ()
+(defun test-shift-out-of-circle ()
   (loop
     do
     (progn
